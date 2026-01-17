@@ -1,5 +1,5 @@
 # ============================================================
-#Group Manager Bot
+# Group Manager Bot
 # Author: LearningBotsOfficial (https://github.com/LearningBotsOfficial) 
 # Support: https://t.me/LearningBotsCommunity
 # Channel: https://t.me/learning_bots
@@ -10,6 +10,7 @@
 import motor.motor_asyncio
 from config import MONGO_URI, DB_NAME
 import logging
+import asyncio
 
 # setup logging
 logging.basicConfig(
@@ -94,6 +95,41 @@ async def reset_warns(chat_id: int, user_id: int):
     )
 
 # ==========================================================
+# 🤬 ABUSE & AUTH SYSTEM (Added New)
+# ==========================================================
+
+async def is_abuse_enabled(chat_id: int) -> bool:
+    doc = await db.abuse_settings.find_one({"chat_id": chat_id})
+    return doc.get("enabled", False) if doc else False
+
+async def set_abuse_status(chat_id: int, enabled: bool):
+    await db.abuse_settings.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"enabled": enabled}},
+        upsert=True
+    )
+
+async def is_user_whitelisted(chat_id: int, user_id: int) -> bool:
+    doc = await db.auth_users.find_one({"chat_id": chat_id, "user_id": user_id})
+    return bool(doc)
+
+async def add_whitelist(chat_id: int, user_id: int):
+    await db.auth_users.update_one(
+        {"chat_id": chat_id, "user_id": user_id},
+        {"$set": {"timestamp": asyncio.get_event_loop().time()}},
+        upsert=True
+    )
+
+async def remove_whitelist(chat_id: int, user_id: int):
+    await db.auth_users.delete_one({"chat_id": chat_id, "user_id": user_id})
+
+async def get_whitelisted_users(chat_id: int):
+    return db.auth_users.find({"chat_id": chat_id})
+
+async def remove_all_whitelist(chat_id: int):
+    await db.auth_users.delete_many({"chat_id": chat_id})
+
+# ==========================================================
 # 🧹 CLEANUP UTILS (Optional)
 # ==========================================================
 
@@ -101,6 +137,8 @@ async def clear_group_data(chat_id: int):
     await db.welcome.delete_one({"chat_id": chat_id})
     await db.locks.delete_one({"chat_id": chat_id})
     await db.warns.delete_many({"chat_id": chat_id})
+    await db.abuse_settings.delete_one({"chat_id": chat_id}) # Added cleanup for abuse
+    await db.auth_users.delete_many({"chat_id": chat_id})    # Added cleanup for auth
 
 
 # ==========================================================
@@ -121,5 +159,4 @@ async def get_all_users():
         if "user_id" in document:
             users.append(document["user_id"])
     return users
-
-
+    
