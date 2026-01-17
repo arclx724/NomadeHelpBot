@@ -11,6 +11,7 @@ import motor.motor_asyncio
 from config import MONGO_URI, DB_NAME
 import logging
 import asyncio
+import time
 
 # setup logging
 logging.basicConfig(
@@ -95,7 +96,7 @@ async def reset_warns(chat_id: int, user_id: int):
     )
 
 # ==========================================================
-# 🤬 ABUSE & AUTH SYSTEM (Added New)
+# 🤬 ABUSE & AUTH SYSTEM (NEW)
 # ==========================================================
 
 async def is_abuse_enabled(chat_id: int) -> bool:
@@ -116,7 +117,7 @@ async def is_user_whitelisted(chat_id: int, user_id: int) -> bool:
 async def add_whitelist(chat_id: int, user_id: int):
     await db.auth_users.update_one(
         {"chat_id": chat_id, "user_id": user_id},
-        {"$set": {"timestamp": asyncio.get_event_loop().time()}},
+        {"$set": {"timestamp": time.time()}},
         upsert=True
     )
 
@@ -130,20 +131,21 @@ async def remove_all_whitelist(chat_id: int):
     await db.auth_users.delete_many({"chat_id": chat_id})
 
 # ==========================================================
-# 🧹 CLEANUP UTILS (Optional)
+# 🧹 CLEANUP UTILS (Updated)
 # ==========================================================
 
 async def clear_group_data(chat_id: int):
     await db.welcome.delete_one({"chat_id": chat_id})
     await db.locks.delete_one({"chat_id": chat_id})
     await db.warns.delete_many({"chat_id": chat_id})
-    await db.abuse_settings.delete_one({"chat_id": chat_id}) # Added cleanup for abuse
-    await db.auth_users.delete_many({"chat_id": chat_id})    # Added cleanup for auth
-
+    # New additions for cleanup
+    await db.abuse_settings.delete_one({"chat_id": chat_id})
+    await db.auth_users.delete_many({"chat_id": chat_id})
 
 # ==========================================================
 # 👤 USER SYSTEM (for broadcast)
 # ==========================================================
+
 async def add_user(user_id, first_name):
     await db.users.update_one(
         {"user_id": user_id},
@@ -155,7 +157,6 @@ async def get_all_users():
     cursor = db.users.find({}, {"_id": 0, "user_id": 1})
     users = []
     async for document in cursor:
-        # Make sure the document has 'user_id'
         if "user_id" in document:
             users.append(document["user_id"])
     return users
